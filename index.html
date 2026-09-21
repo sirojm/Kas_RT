@@ -640,8 +640,15 @@
 
 
     <script>
+        // =========================================================================
+        // KONEKSI KE GOOGLE SPREADSHEET (APPS SCRIPT)
+        // =========================================================================
+        // Ganti teks di dalam tanda kutip di bawah ini dengan URL Web App Apps Script Anda!
+        // Pastikan URL diakhiri dengan /exec
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxq4WEA6BLzh1zguzYHTHtnAvftSWm6-NkywLh9y6vL/dev";
+
         // --- DATA MOCKUP (Simulasi Database Spreadsheet) ---
-        // Jika dihubungkan ke Google Apps Script, ganti manipulasi object ini dengan fungsi fetch()
+        // Jika dihubungkan ke Google Apps Script, data ini akan ditimpa oleh data dari Spreadsheet
         let db = {
             warga: [
                 { id: 1, nik: 'A-01', nama: 'Bapak Ahmad', hp: '0812345678' },
@@ -675,14 +682,55 @@
         const formatRp = (num) => 'Rp ' + num.toLocaleString('id-ID');
         const getEl = (id) => document.getElementById(id);
 
+        // Fungsi untuk mengambil data dari Google Spreadsheet
+        async function fetchFromSpreadsheet() {
+            if (APPS_SCRIPT_URL === "https://script.google.com/macros/s/AKfycbxq4WEA6BLzh1zguzYHTHtnAvftSWm6-NkywLh9y6vL/dev") {
+                console.log("Menjalankan mode Offline/Lokal. Masukkan URL Apps Script untuk terhubung ke Database Spreadsheet.");
+                return false;
+            }
+            
+            try {
+                // Tampilkan indikator loading di judul
+                const titleEl = getEl('page-title');
+                const oldTitle = titleEl.innerText;
+                titleEl.innerText = oldTitle + " (Menyinkronkan data...)";
+
+                // Mengambil data dari Apps Script via metode GET
+                const res = await fetch(APPS_SCRIPT_URL + "?action=getData");
+                const data = await res.json();
+                
+                titleEl.innerText = oldTitle; // Kembalikan judul semula
+                
+                if (data && !data.error) {
+                    // Timpa data lokal dengan data asli dari Spreadsheet jika ada
+                    if(data.warga && data.warga.length > 0) db.warga = data.warga;
+                    if(data.kas_rt && data.kas_rt.length > 0) db.kas_rt = data.kas_rt;
+                    
+                    saveToStorage(); 
+                    return true;
+                }
+            } catch (err) {
+                console.error("Gagal mengambil data dari Spreadsheet:", err);
+            }
+            return false;
+        }
+
         // --- INIT ---
-        window.onload = () => {
+        window.onload = async () => {
             // Coba ambil dari localstorage agar state bertahan saat refresh
             const savedDb = localStorage.getItem('simrt_db');
             if(savedDb) db = JSON.parse(savedDb);
             
             checkAuth();
             renderDashboard(); // Default view
+
+            // Panggil data dari spreadsheet secara asinkron di latar belakang
+            const isSynced = await fetchFromSpreadsheet();
+            if (isSynced) {
+                // Jika berhasil dapat data dari Spreadsheet, render ulang halaman yang sedang aktif
+                const activePage = document.querySelector('.nav-link.bg-gray-800')?.getAttribute('data-target') || 'dashboard';
+                navigate(activePage); 
+            }
         };
 
         function saveToStorage() {
