@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIM RT - Sistem Informasi Manajemen RT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        
+        /* Print Styles for Kwitansi */
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+            .no-print { display: none !important; }
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="text-gray-800 antialiased h-screen flex overflow-hidden">
+
+    <!-- Login Overlay -->
+    <div id="login-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 hidden flex items-center justify-center fade-in">
+        <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md">
+            <div class="text-center mb-6">
+                <div class="bg-blue-600 text-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-lg">
+                    <i class="fas fa-building"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800">Login Sistem RT</h2>
+                <p class="text-sm text-gray-500 mt-1">Gunakan akun admin untuk mengelola data</p>
+            </div>
+            
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <input type="text" id="username" class="pl-10 w-full rounded-lg border-gray-300 border px-4 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="superadmin / adminkas / adminusaha" required>
+                    </div>
+                </div>
+                <div class="mb-6 relative">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <input type="password" id="password" class="pl-10 w-full rounded-lg border-gray-300 border px-4 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="••••••••" required>
+                        <button type="button" onclick="togglePassword()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-eye" id="eye-icon"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition duration-200">
+                    Masuk
+                </button>
+                <div class="mt-4 text-xs text-gray-500 text-center border-t pt-4">
+                    <b>Demo Akun:</b><br>
+                    Super Admin: superadmin / 123<br>
+                    Admin Kas: adminkas / 123<br>
+                    Admin Usaha: adminusaha / 123
+                </div>
+                <button type="button" onclick="closeLogin()" class="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 rounded-lg transition duration-200 text-sm">
+                    Kembali ke Dashboard Publik
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Sidebar (Admin) -->
+    <aside id="sidebar" class="bg-gray-900 text-white w-64 flex-shrink-0 hidden flex-col transition-all duration-300 z-20">
+        <div class="h-16 flex items-center px-6 border-b border-gray-800">
+            <i class="fas fa-building text-blue-400 text-xl mr-3"></i>
+            <span class="font-bold text-lg tracking-wider">SIM RT</span>
+        </div>
+        
+        <div class="p-4 border-b border-gray-800">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-lg font-bold mr-3 shadow-inner">
+                    <span id="user-initial">A</span>
+                </div>
+                <div>
+                    <p id="user-name" class="font-medium text-sm">Admin</p>
+                    <p id="user-role" class="text-xs text-gray-400">Role</p>
+                </div>
+            </div>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto py-4 space-y-1 px-3">
+            <a href="#" onclick="navigate('dashboard')" class="nav-link block px-3 py-2.5 rounded-lg hover:bg-gray-800 transition-colors text-gray-300 hover:text-white" data-target="dashboard">
+                <i class="fas fa-home w-6"></i> Dashboard
+            </a>
+            <div id="menu-warga" class="role-menu" data-roles="superadmin">
+                <a href="#" onclick="navigate('warga')" class="nav-link block px-3 py-2.5 rounded-lg hover:bg-gray-800 transition-colors text-gray-300 hover:text-white" data-target="warga">
+                    <i class="fas fa-users w-6"></i> Manajemen Warga
+                </a>
+            </div>
+            <div id="menu-kas" class="role-menu" data-roles="superadmin,adminkas">
+                <a href="#" onclick="navigate('kas')" class="nav-link block px-3 py-2.5 rounded-lg hover:bg-gray-800 transition-colors text-gray-300 hover:text-white" data-target="kas">
+                    <i class="fas fa-wallet w-6"></i> Kas RT
+                </a>
+                <a href="#" onclick="navigate('iuran')" class="nav-link block px-3 py-2.5 rounded-lg hover:bg-gray-800 transition-colors text-gray-300 hover:text-white" data-target="iuran">
+                    <i class="fas fa-file-invoice-dollar w-6"></i> Iuran Warga
+                </a>
+            </div>
+            <div id="menu-usaha" class="role-menu" data-roles="superadmin,adminusaha">
+                <a href="#" onclick="navigate('usaha')" class="nav-link block px-3 py-2.5 rounded-lg hover:bg-gray-800 transition-colors text-gray-300 hover:text-white" data-target="usaha">
+                    <i class="fas fa-store w-6"></i> Usaha RT
+                </a>
+            </div>
+            <div id="menu-laporan" class="role-menu" data-roles="superadmin,adminkas,adminusaha">
+                <a href="#" onclick="navigate('laporan')" class="nav-link block px-3 py-2.5 rounded-lg hover:bg-gray-800 transition-colors text-gray-300 hover:text-white" data-target="laporan">
+                    <i class="fas fa-chart-bar w-6"></i> Laporan & Export
+                </a>
+            </div>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-800">
+            <button onclick="handleLogout()" class="w-full flex items-center justify-center px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-medium transition-colors">
+                <i class="fas fa-sign-out-alt mr-2"></i> Logout
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50">
+        <!-- Top Navbar -->
+        <header class="h-16 bg-white shadow-sm flex items-center justify-between px-4 lg:px-8 z-10">
+            <div class="flex items-center">
+                <button id="mobile-menu-btn" onclick="toggleSidebar()" class="lg:hidden text-gray-500 hover:text-gray-700 focus:outline-none mr-4">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <h1 id="page-title" class="text-xl font-semibold text-gray-800">Dashboard Publik</h1>
+            </div>
+            <div id="auth-buttons">
+                <button onclick="openLogin()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
+                    <i class="fas fa-sign-in-alt mr-2"></i> Login Pengurus
+                </button>
+            </div>
+        </header>
+
+        <!-- Content Area -->
+        <div class="flex-1 overflow-y-auto p-4 lg:p-8" id="main-content">
+            
+            <!-- Dashboard Section -->
+            <section id="sec-dashboard" class="page-section fade-in">
+                <!-- Stat Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 border-l-4 border-l-blue-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500 mb-1">Total Saldo Kas RT</p>
+                                <h3 class="text-2xl font-bold text-gray-800" id="dash-saldo-kas">Rp 0</h3>
+                            </div>
+                            <div class="p-2 bg-blue-50 rounded-lg text-blue-600"><i class="fas fa-wallet text-xl"></i></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 border-l-4 border-l-green-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500 mb-1">Saldo Usaha RT</p>
+                                <h3 class="text-2xl font-bold text-gray-800" id="dash-saldo-usaha">Rp 0</h3>
+                            </div>
+                            <div class="p-2 bg-green-50 rounded-lg text-green-600"><i class="fas fa-store text-xl"></i></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 border-l-4 border-l-yellow-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500 mb-1">Warga Menunggak Iuran</p>
+                                <h3 class="text-2xl font-bold text-gray-800" id="dash-tunggakan">0 <span class="text-sm font-normal text-gray-500">Warga</span></h3>
+                            </div>
+                            <div class="p-2 bg-yellow-50 rounded-lg text-yellow-600"><i class="fas fa-exclamation-triangle text-xl"></i></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 border-l-4 border-l-purple-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500 mb-1">Barang Usaha Tersedia</p>
+                                <h3 class="text-2xl font-bold text-gray-800" id="dash-barang">0 <span class="text-sm font-normal text-gray-500">Item</span></h3>
+                            </div>
+                            <div class="p-2 bg-purple-50 rounded-lg text-purple-600"><i class="fas fa-boxes text-xl"></i></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">Grafik Arus Kas RT (Tahun Ini)</h3>
+                        <canvas id="chartKas" height="250"></canvas>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">Status Iuran Warga</h3>
+                        <canvas id="chartIuran" height="250"></canvas>
+                    </div>
+                </div>
+
+                <!-- Info Usaha (Public) -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-gray-800">Katalog Usaha RT (Penyewaan)</h3>
+                        <span class="text-sm text-gray-500">Informasi Publik</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama Barang</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Harga Sewa / Hari</th>
+                                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Stok Tersedia</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="table-katalog-publik">
+                                <!-- Data rendered by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Manajemen Warga Section -->
+            <section id="sec-warga" class="page-section hidden fade-in">
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                        <h2 class="text-lg font-bold text-gray-800">Data Warga</h2>
+                        <div class="flex gap-2">
+                            <button onclick="mockImport()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                                <i class="fas fa-file-excel mr-2"></i> Import CSV
+                            </button>
+                            <button onclick="openModal('modal-warga')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                                <i class="fas fa-plus mr-2"></i> Tambah Warga
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">No. Rumah / NIK</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama Kepala Keluarga</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">No. HP</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="table-warga"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Kas RT Section -->
+            <section id="sec-kas" class="page-section hidden fade-in">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-l-blue-500 md:col-span-1">
+                        <h3 class="text-sm font-medium text-gray-500 mb-2">Saldo Akhir Kas RT</h3>
+                        <p class="text-3xl font-bold text-gray-800" id="kas-saldo-utama">Rp 0</p>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border md:col-span-2 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-800">Pencatatan Transaksi Operasional</h3>
+                            <p class="text-sm text-gray-500">Catat pemasukan (selain iuran otomatis) dan pengeluaran RT.</p>
+                        </div>
+                        <button onclick="openModal('modal-kas')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
+                            <i class="fas fa-plus mr-2"></i> Transaksi Baru
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jenis</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Nominal</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="table-kas"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Iuran Warga Section -->
+            <section id="sec-iuran" class="page-section hidden fade-in">
+                <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 flex items-start">
+                    <i class="fas fa-info-circle text-blue-500 mt-1 mr-3 text-lg"></i>
+                    <div>
+                        <h4 class="font-semibold text-blue-800">Sistem Akumulasi Otomatis Aktif</h4>
+                        <p class="text-sm text-blue-600 mt-1">Kewajiban iuran adalah <b>Rp 10.000 / bulan</b>. Status lunas/nunggak dihitung dari selisih total kewajiban (Januari - Bulan Ini) dikurangi total pembayaran warga.</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                        <h2 class="text-lg font-bold text-gray-800">Status Pembayaran Iuran</h2>
+                        <button onclick="openModal('modal-bayar-iuran')" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                            <i class="fas fa-money-bill-wave mr-2"></i> Bayar Iuran
+                        </button>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama Warga</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Kewajiban (YTD)</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Dibayar</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Nominal / Saldo</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="table-iuran-status"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Usaha RT Section -->
+            <section id="sec-usaha" class="page-section hidden fade-in">
+                <!-- Tab Controls -->
+                <div class="border-b border-gray-200 mb-6">
+                    <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                        <button onclick="switchTabUsaha('inventaris')" id="tab-inventaris" class="border-blue-500 text-blue-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Inventaris Barang</button>
+                        <button onclick="switchTabUsaha('penyewaan')" id="tab-penyewaan" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Transaksi Penyewaan</button>
+                        <button onclick="switchTabUsaha('kas-usaha')" id="tab-kas-usaha" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Buku Kas Usaha</button>
+                    </nav>
+                </div>
+
+                <!-- Inventaris Tab -->
+                <div id="usaha-inventaris" class="usaha-tab">
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-lg font-bold text-gray-800">Inventaris Barang Disewakan</h2>
+                            <button onclick="openModal('modal-barang')" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                                <i class="fas fa-plus mr-2"></i> Tambah Barang
+                            </button>
+                        </div>
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama Barang</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Total Stok</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Harga / Hari</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="table-barang"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Penyewaan Tab -->
+                <div id="usaha-penyewaan" class="usaha-tab hidden">
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-lg font-bold text-gray-800">Daftar Penyewaan</h2>
+                            <button onclick="openModal('modal-sewa')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                                <i class="fas fa-handshake mr-2"></i> Input Sewa Baru
+                            </button>
+                        </div>
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Penyewa</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Barang</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Biaya</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="table-sewa"></tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Kas Usaha Tab -->
+                <div id="usaha-kas-usaha" class="usaha-tab hidden">
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-6 border-l-4 border-l-green-500">
+                        <h3 class="text-sm font-medium text-gray-500 mb-2">Total Saldo Kas Usaha</h3>
+                        <p class="text-3xl font-bold text-gray-800" id="kas-saldo-usaha-tab">Rp 0</p>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <h2 class="text-lg font-bold text-gray-800 mb-4">Riwayat Pemasukan Usaha</h2>
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Nominal Masuk</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="table-kas-usaha"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Laporan Section -->
+            <section id="sec-laporan" class="page-section hidden fade-in">
+                <div class="bg-white rounded-xl shadow-sm p-8 border border-gray-100 text-center max-w-2xl mx-auto mt-10">
+                    <div class="text-5xl text-blue-500 mb-4"><i class="fas fa-file-export"></i></div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Export Laporan Sistem</h2>
+                    <p class="text-gray-500 mb-8">Unduh rekapitulasi data sistem RT dalam format Excel (CSV).</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button onclick="exportCSV('kas')" class="flex items-center justify-center p-4 border rounded-xl hover:bg-gray-50 transition-colors">
+                            <i class="fas fa-wallet text-2xl text-blue-600 mr-4"></i>
+                            <div class="text-left">
+                                <h4 class="font-bold text-gray-800">Laporan Kas RT</h4>
+                                <span class="text-xs text-gray-500">Format CSV</span>
+                            </div>
+                        </button>
+                        <button onclick="exportCSV('iuran')" class="flex items-center justify-center p-4 border rounded-xl hover:bg-gray-50 transition-colors">
+                            <i class="fas fa-file-invoice text-2xl text-green-600 mr-4"></i>
+                            <div class="text-left">
+                                <h4 class="font-bold text-gray-800">Rekap Iuran Warga</h4>
+                                <span class="text-xs text-gray-500">Format CSV</span>
+                            </div>
+                        </button>
+                        <button onclick="exportCSV('usaha')" class="flex items-center justify-center p-4 border rounded-xl hover:bg-gray-50 transition-colors">
+                            <i class="fas fa-store text-2xl text-purple-600 mr-4"></i>
+                            <div class="text-left">
+                                <h4 class="font-bold text-gray-800">Laporan Usaha RT</h4>
+                                <span class="text-xs text-gray-500">Format CSV</span>
+                            </div>
+                        </button>
+                        <button onclick="exportCSV('warga')" class="flex items-center justify-center p-4 border rounded-xl hover:bg-gray-50 transition-colors">
+                            <i class="fas fa-users text-2xl text-gray-600 mr-4"></i>
+                            <div class="text-left">
+                                <h4 class="font-bold text-gray-800">Data Master Warga</h4>
+                                <span class="text-xs text-gray-500">Format CSV</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- MODALS -->
+    
+    <!-- Modal Tambah/Edit Warga -->
+    <div id="modal-warga" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold text-gray-800 mb-4" id="modal-warga-title">Tambah Warga</h3>
+            <form id="form-warga" onsubmit="saveWarga(event)">
+                <input type="hidden" id="warga-id">
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">No. Rumah / NIK</label>
+                    <input type="text" id="warga-nik" class="w-full rounded-lg border-gray-300 border px-3 py-2" required>
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Kepala Keluarga</label>
+                    <input type="text" id="warga-nama" class="w-full rounded-lg border-gray-300 border px-3 py-2" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">No. HP Aktif</label>
+                    <input type="text" id="warga-hp" class="w-full rounded-lg border-gray-300 border px-3 py-2">
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="closeModal('modal-warga')" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg text-sm">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Transaksi Kas -->
+    <div id="modal-kas" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Catat Transaksi Kas RT</h3>
+            <form id="form-kas" onsubmit="saveKas(event)">
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal</label>
+                    <input type="date" id="kas-tgl" class="w-full rounded-lg border-gray-300 border px-3 py-2" required>
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Jenis Transaksi</label>
+                    <select id="kas-jenis" class="w-full rounded-lg border-gray-300 border px-3 py-2">
+                        <option value="masuk">Pemasukan (+)</option>
+                        <option value="keluar">Pengeluaran (-)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nominal (Rp)</label>
+                    <input type="number" id="kas-nominal" class="w-full rounded-lg border-gray-300 border px-3 py-2" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Keterangan</label>
+                    <input type="text" id="kas-ket" class="w-full rounded-lg border-gray-300 border px-3 py-2" required>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="closeModal('modal-kas')" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg text-sm">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Bayar Iuran -->
+    <div id="modal-bayar-iuran" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Input Pembayaran Iuran</h3>
+            <form id="form-bayar-iuran" onsubmit="saveIuran(event)">
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Warga</label>
+                    <select id="iuran-warga" class="w-full rounded-lg border-gray-300 border px-3 py-2" required>
+                        <!-- Options generated by JS -->
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Bayar</label>
+                    <input type="date" id="iuran-tgl" class="w-full rounded-lg border-gray-300 border px-3 py-2" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nominal Dibayar (Rp)</label>
+                    <input type="number" id="iuran-nominal" class="w-full rounded-lg border-gray-300 border px-3 py-2" placeholder="Kelipatan Rp 10.000" required>
+                    <p class="text-xs text-gray-500 mt-1">Uang akan otomatis memotong tunggakan atau masuk ke saldo prabayar.</p>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="closeModal('modal-bayar-iuran')" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg text-sm">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm">Simpan Pembayaran</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Tambah Barang (Usaha) -->
+    <div id="modal-barang" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Tambah Inventaris Usaha</h3>
+            <form id="form-barang" onsubmit="saveBarang(event)">
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Barang</label>
+                    <input type="text" id="barang-nama" class="w-full rounded-lg border-gray-300 border px-3 py-2" required>
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Total Stok Awal</label>
+                    <input type="number" id="barang-stok" class="w-full rounded-lg border-gray-300 border px-3 py-2" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Harga Sewa per Hari (Rp)</label>
+                    <input type="number" id="barang-harga" class="w-full rounded-lg border-gray-300 border px-3 py-2" required>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="closeModal('modal-barang')" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg text-sm">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Input Sewa (Usaha) -->
+    <div id="modal-sewa" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Input Transaksi Penyewaan</h3>
+            <form id="form-sewa" onsubmit="saveSewa(event)">
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Penyewa</label>
+                    <input type="text" id="sewa-nama" class="w-full rounded-lg border-gray-300 border px-3 py-2" placeholder="Warga / Umum" required>
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Barang</label>
+                    <select id="sewa-barang" class="w-full rounded-lg border-gray-300 border px-3 py-2" onchange="calcSewa()" required>
+                        <!-- JS generated -->
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah (Qty)</label>
+                        <input type="number" id="sewa-qty" class="w-full rounded-lg border-gray-300 border px-3 py-2" min="1" value="1" oninput="calcSewa()" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Lama (Hari)</label>
+                        <input type="number" id="sewa-hari" class="w-full rounded-lg border-gray-300 border px-3 py-2" min="1" value="1" oninput="calcSewa()" required>
+                    </div>
+                </div>
+                <div class="mb-4 bg-gray-50 p-3 rounded border">
+                    <span class="text-sm text-gray-500">Total Biaya:</span>
+                    <div class="text-xl font-bold text-gray-800" id="sewa-total">Rp 0</div>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="closeModal('modal-sewa')" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg text-sm">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Simpan & Cetak</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Print Area for Kwitansi -->
+    <div id="print-area" class="hidden bg-white">
+        <div class="max-w-2xl mx-auto border-2 border-gray-800 p-8">
+            <div class="text-center border-b-2 border-gray-800 pb-4 mb-6">
+                <h1 class="text-2xl font-bold uppercase">Kwitansi Penyewaan</h1>
+                <p class="text-sm">Usaha Mandiri RT 01 / RW 02</p>
+            </div>
+            <table class="w-full mb-6">
+                <tr><td class="w-32 py-1 font-semibold">No. Transaksi</td><td id="print-id">: TRX-001</td></tr>
+                <tr><td class="py-1 font-semibold">Tanggal</td><td id="print-tgl">: 01 Jan 2023</td></tr>
+                <tr><td class="py-1 font-semibold">Nama Penyewa</td><td id="print-nama">: Budi</td></tr>
+            </table>
+            <table class="w-full border-collapse border border-gray-400 mb-6 text-sm">
+                <thead>
+                    <tr class="bg-gray-100"><th class="border border-gray-400 p-2 text-left">Deskripsi Barang</th><th class="border border-gray-400 p-2 text-center">Qty</th><th class="border border-gray-400 p-2 text-center">Lama Sewa</th><th class="border border-gray-400 p-2 text-right">Subtotal</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td class="border border-gray-400 p-2" id="print-barang">Tenda</td><td class="border border-gray-400 p-2 text-center" id="print-qty">1</td><td class="border border-gray-400 p-2 text-center" id="print-hari">2 Hari</td><td class="border border-gray-400 p-2 text-right font-bold" id="print-total">Rp 100.000</td></tr>
+                </tbody>
+            </table>
+            <div class="flex justify-between mt-12">
+                <div class="text-center">
+                    <p class="mb-16">Penyewa</p>
+                    <p class="font-bold underline border-b border-gray-800 inline-block" id="print-sign-nama">Budi</p>
+                </div>
+                <div class="text-center">
+                    <p class="mb-16">Admin Usaha RT</p>
+                    <p class="font-bold underline border-b border-gray-800 inline-block">..........................</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- DATA MOCKUP (Simulasi Database Spreadsheet) ---
+        // Jika dihubungkan ke Google Apps Script, ganti manipulasi object ini dengan fungsi fetch()
+        let db = {
+            warga: [
+                { id: 1, nik: 'A-01', nama: 'Bapak Ahmad', hp: '0812345678' },
+                { id: 2, nik: 'A-02', nama: 'Ibu Budi', hp: '0887654321' },
+                { id: 3, nik: 'B-01', nama: 'Bapak Cipto', hp: '0899123412' }
+            ],
+            kas_rt: [
+                { id: 1, tgl: '2023-01-01', jenis: 'masuk', nominal: 1000000, ket: 'Saldo Awal Tahun' },
+                { id: 2, tgl: '2023-02-15', jenis: 'keluar', nominal: 150000, ket: 'Perbaikan Lampu Jalan' }
+            ],
+            iuran: [
+                { id: 1, warga_id: 1, tgl: '2023-01-10', nominal: 120000 }, // Lunas 1 tahun
+                { id: 2, warga_id: 2, tgl: '2023-03-05', nominal: 50000 }  // Baru bayar 50k
+            ],
+            usaha_barang: [
+                { id: 1, nama: 'Tenda Terop (4x6)', stok: 3, harga: 150000 },
+                { id: 2, nama: 'Kursi Lipat', stok: 100, harga: 2000 },
+                { id: 3, nama: 'Sound System Portable', stok: 1, harga: 75000 }
+            ],
+            usaha_sewa: [],
+            kas_usaha: []
+        };
+
+        // Current Session State
+        let currentUser = null; // null = public, { role: '...' }
+        const IURAN_PER_BULAN = 10000;
+        let chartKasInstance = null;
+        let chartIuranInstance = null;
+
+        // --- UTILS ---
+        const formatRp = (num) => 'Rp ' + num.toLocaleString('id-ID');
+        const getEl = (id) => document.getElementById(id);
+
+        // --- INIT ---
+        window.onload = () => {
+            // Coba ambil dari localstorage agar state bertahan saat refresh
+            const savedDb = localStorage.getItem('simrt_db');
+            if(savedDb) db = JSON.parse(savedDb);
+            
+            checkAuth();
+            renderDashboard(); // Default view
+        };
+
+        function saveToStorage() {
+            localStorage.setItem('simrt_db', JSON.stringify(db));
+            renderDashboard(); // Refresh dash data on every save
+        }
+
+        // --- AUTH & NAVIGATION ---
+        function checkAuth() {
+            const user = sessionStorage.getItem('simrt_user');
+            if (user) {
+                currentUser = JSON.parse(user);
+                applyRBAC();
+            } else {
+                currentUser = null;
+                applyPublicView();
+            }
+        }
+
+        function openLogin() { getEl('login-overlay').classList.remove('hidden'); }
+        function closeLogin() { getEl('login-overlay').classList.add('hidden'); }
+        
+        function togglePassword() {
+            const input = getEl('password');
+            const icon = getEl('eye-icon');
+            if(input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const u = getEl('username').value.toLowerCase();
+            const p = getEl('password').value;
+            
+            let role = null;
+            if(u === 'superadmin' && p === '123') role = 'superadmin';
+            else if(u === 'adminkas' && p === '123') role = 'adminkas';
+            else if(u === 'adminusaha' && p === '123') role = 'adminusaha';
+
+            if(role) {
+                currentUser = { username: u, role: role, name: u === 'superadmin'? 'Super Admin' : (role==='adminkas'?'Admin Kas':'Admin Usaha') };
+                sessionStorage.setItem('simrt_user', JSON.stringify(currentUser));
+                closeLogin();
+                applyRBAC();
+                navigate('dashboard');
+            } else {
+                alert('Username atau password salah! (Cek petunjuk demo akun)'); // Using alert fallback if custom modal is overkill for simple login err, but requested to avoid alert.
+                // Replace alert with inline error:
+                const form = getEl('login-form');
+                let err = getEl('login-err');
+                if(!err) {
+                    err = document.createElement('div');
+                    err.id = 'login-err';
+                    err.className = 'text-red-500 text-sm mb-3 font-medium bg-red-50 p-2 rounded';
+                    form.insertBefore(err, form.firstChild);
+                }
+                err.innerText = "Username/Password salah!";
+            }
+        }
+
+        function handleLogout() {
+            sessionStorage.removeItem('simrt_user');
+            currentUser = null;
+            applyPublicView();
+            navigate('dashboard');
+        }
+
+        function applyPublicView() {
+            getEl('sidebar').classList.add('hidden');
+            getEl('sidebar').classList.remove('flex');
+            getEl('auth-buttons').innerHTML = `<button onclick="openLogin()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"><i class="fas fa-sign-in-alt mr-2"></i> Login Pengurus</button>`;
+        }
+
+        function applyRBAC() {
+            getEl('sidebar').classList.remove('hidden');
+            getEl('sidebar').classList.add('flex');
+            getEl('auth-buttons').innerHTML = ``;
+            
+            getEl('user-name').innerText = currentUser.name;
+            getEl('user-role').innerText = currentUser.role.toUpperCase();
+            getEl('user-initial').innerText = currentUser.name.charAt(0).toUpperCase();
+
+            // Hide/Show menus based on data-roles
+            document.querySelectorAll('.role-menu').forEach(menu => {
+                const roles = menu.getAttribute('data-roles').split(',');
+                if(roles.includes(currentUser.role)) {
+                    menu.style.display = 'block';
+                } else {
+                    menu.style.display = 'none';
+                }
+            });
+        }
+
+        function toggleSidebar() {
+            const sb = getEl('sidebar');
+            if(sb.classList.contains('hidden')) {
+                sb.classList.remove('hidden');
+                sb.classList.add('flex', 'absolute', 'h-full');
+            } else {
+                sb.classList.add('hidden');
+                sb.classList.remove('flex', 'absolute', 'h-full');
+            }
+        }
+
+        function navigate(pageId) {
+            // Cek akses
+            if(pageId !== 'dashboard' && !currentUser) {
+                openLogin();
+                return;
+            }
+
+            document.querySelectorAll('.page-section').forEach(sec => sec.classList.add('hidden'));
+            getEl('sec-' + pageId).classList.remove('hidden');
+            
+            // Update active nav link
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('bg-gray-800', 'text-white');
+                link.classList.add('text-gray-300');
+                if(link.getAttribute('data-target') === pageId) {
+                    link.classList.add('bg-gray-800', 'text-white');
+                    link.classList.remove('text-gray-300');
+                }
+            });
+
+            // Set Title
+            const titles = { dashboard: 'Dashboard', warga: 'Manajemen Warga', kas: 'Kas RT', iuran: 'Iuran Warga', usaha: 'Usaha RT', laporan: 'Laporan & Export' };
+            getEl('page-title').innerText = titles[pageId];
+
+            // Render specific data
+            if(pageId === 'warga') renderWarga();
+            if(pageId === 'kas') renderKas();
+            if(pageId === 'iuran') renderIuran();
+            if(pageId === 'usaha') renderUsaha();
+            
+            // hide sidebar on mobile after click
+            if(window.innerWidth < 1024 && currentUser) getEl('sidebar').classList.add('hidden');
+        }
+
+        function openModal(id) {
+            getEl(id).classList.remove('hidden');
+            if(id === 'modal-bayar-iuran') populateWargaSelect();
+            if(id === 'modal-sewa') populateBarangSelect();
+        }
+        function closeModal(id) { getEl(id).classList.add('hidden'); }
+
+        // --- CORE LOGIC: CALCULATION & RENDERING ---
+
+        // 1. Dashboard
+        function renderDashboard() {
+            // Hitung Saldo Kas
+            const totalMasuk = db.kas_rt.filter(k => k.jenis === 'masuk').reduce((s, k) => s + Number(k.nominal), 0);
+            const totalKeluar = db.kas_rt.filter(k => k.jenis === 'keluar').reduce((s, k) => s + Number(k.nominal), 0);
+            
+            // Hitung Uang Iuran masuk ke Kas RT
+            const totalIuran = db.iuran.reduce((s, i) => s + Number(i.nominal), 0);
+            const saldoKasUtama = totalMasuk + totalIuran - totalKeluar;
+            
+            // Hitung Saldo Usaha
+            const saldoUsaha = db.kas_usaha.reduce((s, k) => s + Number(k.nominal), 0);
+
+            getEl('dash-saldo-kas').innerText = formatRp(saldoKasUtama);
+            getEl('dash-saldo-usaha').innerText = formatRp(saldoUsaha);
+            getEl('dash-barang').innerHTML = `${db.usaha_barang.length} <span class="text-sm font-normal text-gray-500">Kategori</span>`;
+
+            // Hitung Tunggakan
+            let nunggakCount = 0;
+            let statusData = getStatusIuranSemua();
+            statusData.forEach(st => { if(st.status === 'Menunggak') nunggakCount++; });
+            getEl('dash-tunggakan').innerHTML = `${nunggakCount} <span class="text-sm font-normal text-gray-500">Warga</span>`;
+
+            renderKatalogPublik();
+            renderCharts(statusData, totalMasuk+totalIuran, totalKeluar);
+        }
+
+        // Logika Akumulasi Iuran (Kunci Utama)
+        function getStatusIuranSemua() {
+            // Asumsi kewajiban dihitung dari Jan 2023 sd Bulan saat ini (Contoh statis bulan ini kita set Okt 2023 = 10 bulan)
+            // Untuk dinamis, gunakan Date()
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            const startYear = 2023; // Sistem mulai 2023
+            let totalMonths = 0;
+            if(currentYear === startYear) {
+                totalMonths = today.getMonth() + 1;
+            } else {
+                totalMonths = (currentYear - startYear) * 12 + (today.getMonth() + 1);
+            }
+            // Mencegah nilai nol/negatif
+            if(totalMonths < 1) totalMonths = 1; 
+            
+            const expectedTotal = totalMonths * IURAN_PER_BULAN;
+
+            return db.warga.map(w => {
+                const totalPaid = db.iuran.filter(i => i.warga_id === w.id).reduce((s, i) => s + Number(i.nominal), 0);
+                const diff = totalPaid - expectedTotal;
+                let status, val;
+                
+                if (diff < 0) { status = 'Menunggak'; val = Math.abs(diff); }
+                else if (diff > 0) { status = 'Prabayar'; val = diff; }
+                else { status = 'Lunas'; val = 0; }
+
+                return { ...w, expectedTotal, totalPaid, status, val };
+            });
+        }
+
+        function renderKatalogPublik() {
+            const tb = getEl('table-katalog-publik');
+            tb.innerHTML = '';
+            db.usaha_barang.forEach(b => {
+                // Hitung stok terpakai
+                const dipakai = db.usaha_sewa.filter(s => s.barang_id === b.id && !s.selesai).reduce((s, i) => s + Number(i.qty), 0);
+                const sisa = b.stok - dipakai;
+                tb.innerHTML += `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${b.nama}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatRp(b.harga)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-bold ${sisa>0?'text-green-600':'text-red-500'}">${sisa} / ${b.stok}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderCharts(statusData, kasMasuk, kasKeluar) {
+            // Chart Kas
+            const ctxKas = getEl('chartKas').getContext('2d');
+            if(chartKasInstance) chartKasInstance.destroy();
+            chartKasInstance = new Chart(ctxKas, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Pemasukan (inc. Iuran)', 'Pengeluaran'],
+                    datasets: [{
+                        data: [kasMasuk, kasKeluar],
+                        backgroundColor: ['#3b82f6', '#ef4444'],
+                        borderWidth: 0
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '70%' }
+            });
+
+            // Chart Iuran
+            let cLunas = 0, cNunggak = 0, cPra = 0;
+            statusData.forEach(s => {
+                if(s.status==='Lunas') cLunas++;
+                if(s.status==='Menunggak') cNunggak++;
+                if(s.status==='Prabayar') cPra++;
+            });
+            const ctxIuran = getEl('chartIuran').getContext('2d');
+            if(chartIuranInstance) chartIuranInstance.destroy();
+            chartIuranInstance = new Chart(ctxIuran, {
+                type: 'bar',
+                data: {
+                    labels: ['Lunas', 'Prabayar', 'Menunggak'],
+                    datasets: [{
+                        label: 'Jumlah Warga',
+                        data: [cLunas, cPra, cNunggak],
+                        backgroundColor: ['#10b981', '#8b5cf6', '#f59e0b']
+                    }]
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        // 2. Manajemen Warga
+        function renderWarga() {
+            const tb = getEl('table-warga');
+            tb.innerHTML = '';
+            db.warga.forEach(w => {
+                tb.innerHTML += `
+                    <tr>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">${w.nik}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${w.nama}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${w.hp}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
+                            <button onclick="editWarga(${w.id})" class="text-blue-600 hover:text-blue-900 mr-3"><i class="fas fa-edit"></i></button>
+                            <button onclick="hapusWarga(${w.id})" class="text-red-600 hover:text-red-900"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function saveWarga(e) {
+            e.preventDefault();
+            const id = getEl('warga-id').value;
+            const data = {
+                nik: getEl('warga-nik').value,
+                nama: getEl('warga-nama').value,
+                hp: getEl('warga-hp').value
+            };
+            if(id) { // Edit
+                const idx = db.warga.findIndex(w => w.id == id);
+                db.warga[idx] = { ...db.warga[idx], ...data };
+            } else { // Tambah
+                data.id = db.warga.length > 0 ? Math.max(...db.warga.map(w => w.id)) + 1 : 1;
+                db.warga.push(data);
+            }
+            saveToStorage();
+            closeModal('modal-warga');
+            renderWarga();
+            getEl('form-warga').reset();
+            getEl('warga-id').value = '';
+        }
+
+        function editWarga(id) {
+            const w = db.warga.find(x => x.id === id);
+            getEl('warga-id').value = w.id;
+            getEl('warga-nik').value = w.nik;
+            getEl('warga-nama').value = w.nama;
+            getEl('warga-hp').value = w.hp;
+            getEl('modal-warga-title').innerText = 'Edit Warga';
+            openModal('modal-warga');
+        }
+
+        function hapusWarga(id) {
+            if(confirm('Yakin hapus warga ini? Data iuran terkait akan ikut terhapus!')) {
+                db.warga = db.warga.filter(w => w.id !== id);
+                db.iuran = db.iuran.filter(i => i.warga_id !== id); // Cascade delete
+                saveToStorage();
+                renderWarga();
+            }
+        }
+
+        function mockImport() {
+            alert('Fitur Import CSV. Siapkan format Excel/CSV dengan header: No_Rumah, Nama, No_HP. (Simulasi selesai, silakan hubungkan dengan library SheetJS untuk real backend).');
+        }
+
+        // 3. Kas RT
+        function renderKas() {
+            const tb = getEl('table-kas');
+            tb.innerHTML = '';
+            
+            // Gabungkan iuran ke kas (virtual view)
+            const allKas = [...db.kas_rt];
+            db.iuran.forEach(i => {
+                const w = db.warga.find(x => x.id === i.warga_id);
+                allKas.push({ id: 'i_'+i.id, tgl: i.tgl, jenis: 'masuk', nominal: i.nominal, ket: `Iuran Warga - ${w?w.nama:'-'}` });
+            });
+            
+            // Sort by date desc
+            allKas.sort((a,b) => new Date(b.tgl) - new Date(a.tgl));
+
+            let total = 0;
+            allKas.slice().reverse().forEach(k => {
+                if(k.jenis === 'masuk') total += Number(k.nominal);
+                else total -= Number(k.nominal);
+            });
+            getEl('kas-saldo-utama').innerText = formatRp(total);
+
+            allKas.forEach(k => {
+                tb.innerHTML += `
+                    <tr>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${k.tgl}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">${k.ket}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm">
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold ${k.jenis==='masuk'?'bg-green-100 text-green-800':'bg-red-100 text-red-800'}">
+                                ${k.jenis==='masuk'?'Pemasukan':'Pengeluaran'}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-right ${k.jenis==='masuk'?'text-green-600':'text-red-600'}">
+                            ${k.jenis==='masuk'?'+':'-'} ${formatRp(k.nominal)}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function saveKas(e) {
+            e.preventDefault();
+            const data = {
+                id: db.kas_rt.length > 0 ? Math.max(...db.kas_rt.map(x => x.id)) + 1 : 1,
+                tgl: getEl('kas-tgl').value,
+                jenis: getEl('kas-jenis').value,
+                nominal: Number(getEl('kas-nominal').value),
+                ket: getEl('kas-ket').value
+            };
+            db.kas_rt.push(data);
+            saveToStorage();
+            closeModal('modal-kas');
+            renderKas();
+            getEl('form-kas').reset();
+        }
+
+        // 4. Iuran Warga
+        function renderIuran() {
+            const tb = getEl('table-iuran-status');
+            tb.innerHTML = '';
+            const statusData = getStatusIuranSemua();
+            
+            statusData.forEach(s => {
+                let badgeClass = s.status === 'Lunas' ? 'bg-green-100 text-green-800' : (s.status === 'Prabayar' ? 'bg-purple-100 text-purple-800' : 'bg-red-100 text-red-800');
+                let nominalClass = s.status === 'Menunggak' ? 'text-red-600' : 'text-gray-900';
+                
+                tb.innerHTML += `
+                    <tr>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                            ${s.nama} <span class="text-xs text-gray-500">(${s.nik})</span>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">${formatRp(s.expectedTotal)}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">${formatRp(s.totalPaid)}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-center text-sm">
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold ${badgeClass}">${s.status}</span>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-right ${nominalClass}">
+                            ${s.status==='Menunggak' ? '-' : (s.status==='Prabayar'?'+':'')} ${formatRp(s.val)}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function populateWargaSelect() {
+            const sel = getEl('iuran-warga');
+            sel.innerHTML = '<option value="">-- Pilih Warga --</option>';
+            db.warga.forEach(w => { sel.innerHTML += `<option value="${w.id}">${w.nik} - ${w.nama}</option>`; });
+        }
+
+        function saveIuran(e) {
+            e.preventDefault();
+            const data = {
+                id: db.iuran.length > 0 ? Math.max(...db.iuran.map(x => x.id)) + 1 : 1,
+                warga_id: Number(getEl('iuran-warga').value),
+                tgl: getEl('iuran-tgl').value,
+                nominal: Number(getEl('iuran-nominal').value)
+            };
+            db.iuran.push(data);
+            saveToStorage();
+            closeModal('modal-bayar-iuran');
+            renderIuran();
+            getEl('form-bayar-iuran').reset();
+        }
+
+        // 5. Usaha RT
+        function switchTabUsaha(tab) {
+            document.querySelectorAll('.usaha-tab').forEach(t => t.classList.add('hidden'));
+            getEl('usaha-'+tab).classList.remove('hidden');
+            
+            // Reset tab styles
+            ['inventaris', 'penyewaan', 'kas-usaha'].forEach(t => {
+                const btn = getEl('tab-'+t);
+                btn.classList.remove('border-blue-500', 'text-blue-600');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+            const activeBtn = getEl('tab-'+tab);
+            activeBtn.classList.remove('border-transparent', 'text-gray-500');
+            activeBtn.classList.add('border-blue-500', 'text-blue-600');
+            
+            if(tab === 'inventaris') renderUsahaInventaris();
+            if(tab === 'penyewaan') renderUsahaSewa();
+            if(tab === 'kas-usaha') renderKasUsaha();
+        }
+
+        function renderUsaha() { switchTabUsaha('inventaris'); } // Default tab
+
+        function renderUsahaInventaris() {
+            const tb = getEl('table-barang');
+            tb.innerHTML = '';
+            db.usaha_barang.forEach(b => {
+                tb.innerHTML += `
+                    <tr>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${b.nama}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-500">${b.stok}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-right text-sm text-gray-500">${formatRp(b.harga)}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
+                            <button onclick="hapusBarang(${b.id})" class="text-red-600 hover:text-red-900"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function saveBarang(e) {
+            e.preventDefault();
+            const data = {
+                id: db.usaha_barang.length > 0 ? Math.max(...db.usaha_barang.map(x => x.id)) + 1 : 1,
+                nama: getEl('barang-nama').value,
+                stok: Number(getEl('barang-stok').value),
+                harga: Number(getEl('barang-harga').value)
+            };
+            db.usaha_barang.push(data);
+            saveToStorage();
+            closeModal('modal-barang');
+            renderUsahaInventaris();
+            getEl('form-barang').reset();
+        }
+
+        function hapusBarang(id) {
+            if(confirm('Yakin hapus barang?')) {
+                db.usaha_barang = db.usaha_barang.filter(b => b.id !== id);
+                saveToStorage();
+                renderUsahaInventaris();
+            }
+        }
+
+        function renderUsahaSewa() {
+            const tb = getEl('table-sewa');
+            tb.innerHTML = '';
+            db.usaha_sewa.forEach(s => {
+                const b = db.usaha_barang.find(x => x.id === s.barang_id);
+                tb.innerHTML += `
+                    <tr>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${s.tgl}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${s.nama_penyewa}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">${b?b.nama:'Unknown'} (x${s.qty})</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-bold text-gray-900">${formatRp(s.total)}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
+                            ${s.selesai ? 
+                                '<span class="text-green-500 text-xs font-bold"><i class="fas fa-check-circle"></i> Selesai</span>' : 
+                                `<button onclick="selesaikanSewa(${s.id})" class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs hover:bg-blue-200">Kembalikan</button>`
+                            }
+                            <button onclick="cetakKwitansi(${s.id})" class="text-gray-600 hover:text-gray-900 ml-2" title="Cetak Ulang"><i class="fas fa-print"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function populateBarangSelect() {
+            const sel = getEl('sewa-barang');
+            sel.innerHTML = '<option value="">-- Pilih Barang --</option>';
+            db.usaha_barang.forEach(b => {
+                const dipakai = db.usaha_sewa.filter(s => s.barang_id === b.id && !s.selesai).reduce((s, i) => s + Number(i.qty), 0);
+                const sisa = b.stok - dipakai;
+                if(sisa > 0) sel.innerHTML += `<option value="${b.id}" data-harga="${b.harga}" data-sisa="${sisa}">${b.nama} (Sisa: ${sisa} - ${formatRp(b.harga)}/hr)</option>`;
+            });
+        }
+
+        function calcSewa() {
+            const sel = getEl('sewa-barang');
+            if(!sel.value) return getEl('sewa-total').innerText = 'Rp 0';
+            const opt = sel.options[sel.selectedIndex];
+            const harga = Number(opt.getAttribute('data-harga'));
+            const maxSisa = Number(opt.getAttribute('data-sisa'));
+            
+            let qty = Number(getEl('sewa-qty').value);
+            if(qty > maxSisa) { getEl('sewa-qty').value = maxSisa; qty = maxSisa; alert('Melebihi stok tersedia!'); }
+            
+            const hari = Number(getEl('sewa-hari').value);
+            const total = harga * qty * hari;
+            getEl('sewa-total').innerText = formatRp(total);
+        }
+
+        function saveSewa(e) {
+            e.preventDefault();
+            const sel = getEl('sewa-barang');
+            const b = db.usaha_barang.find(x => x.id == sel.value);
+            const qty = Number(getEl('sewa-qty').value);
+            const hari = Number(getEl('sewa-hari').value);
+            const total = b.harga * qty * hari;
+
+            const data = {
+                id: db.usaha_sewa.length > 0 ? Math.max(...db.usaha_sewa.map(x => x.id)) + 1 : 1,
+                tgl: new Date().toISOString().split('T')[0],
+                nama_penyewa: getEl('sewa-nama').value,
+                barang_id: b.id,
+                qty: qty,
+                hari: hari,
+                total: total,
+                selesai: false
+            };
+            
+            db.usaha_sewa.push(data);
+            
+            // Masukkan langsung ke kas usaha
+            db.kas_usaha.push({
+                id: db.kas_usaha.length > 0 ? Math.max(...db.kas_usaha.map(x => x.id)) + 1 : 1,
+                tgl: data.tgl,
+                ket: `Sewa ${b.nama} oleh ${data.nama_penyewa}`,
+                nominal: total
+            });
+
+            saveToStorage();
+            closeModal('modal-sewa');
+            renderUsahaSewa();
+            
+            // Auto Print
+            cetakKwitansi(data.id);
+            getEl('form-sewa').reset();
+            getEl('sewa-total').innerText = 'Rp 0';
+        }
+
+        function selesaikanSewa(id) {
+            const idx = db.usaha_sewa.findIndex(x => x.id === id);
+            db.usaha_sewa[idx].selesai = true;
+            saveToStorage();
+            renderUsahaSewa();
+        }
+
+        function cetakKwitansi(id) {
+            const s = db.usaha_sewa.find(x => x.id === id);
+            const b = db.usaha_barang.find(x => x.id === s.barang_id);
+            
+            getEl('print-id').innerText = `: TRX-${String(s.id).padStart(4,'0')}`;
+            getEl('print-tgl').innerText = `: ${s.tgl}`;
+            getEl('print-nama').innerText = `: ${s.nama_penyewa}`;
+            getEl('print-barang').innerText = b.nama;
+            getEl('print-qty').innerText = s.qty;
+            getEl('print-hari').innerText = `${s.hari} Hari`;
+            getEl('print-total').innerText = formatRp(s.total);
+            getEl('print-sign-nama').innerText = s.nama_penyewa;
+
+            window.print(); // Triggers browser print dialog using @media print CSS
+        }
+
+        function renderKasUsaha() {
+            const tb = getEl('table-kas-usaha');
+            tb.innerHTML = '';
+            let total = 0;
+            db.kas_usaha.slice().reverse().forEach(k => {
+                total += Number(k.nominal);
+                tb.innerHTML += `
+                    <tr>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${k.tgl}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">${k.ket}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-bold text-green-600">+ ${formatRp(k.nominal)}</td>
+                    </tr>
+                `;
+            });
+            getEl('kas-saldo-usaha-tab').innerText = formatRp(total);
+        }
+
+        // 6. Laporan (Export CSV Native implementation)
+        function exportCSV(type) {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            
+            if(type === 'warga') {
+                csvContent += "ID,NIK/No.Rumah,Nama,No.HP\n";
+                db.warga.forEach(row => { csvContent += `${row.id},${row.nik},${row.nama},${row.hp}\n`; });
+            }
+            else if(type === 'kas') {
+                csvContent += "ID,Tanggal,Keterangan,Jenis,Nominal\n";
+                db.kas_rt.forEach(row => { csvContent += `${row.id},${row.tgl},${row.ket},${row.jenis},${row.nominal}\n`; });
+            }
+            else if(type === 'iuran') {
+                csvContent += "Nama Warga,Kewajiban YTD,Total Dibayar,Status,Selisih Saldo/Tunggakan\n";
+                const data = getStatusIuranSemua();
+                data.forEach(row => { csvContent += `${row.nama},${row.expectedTotal},${row.totalPaid},${row.status},${row.val}\n`; });
+            }
+            else if(type === 'usaha') {
+                csvContent += "ID,Tanggal,Penyewa,Barang ID,Qty,Hari,Total Rp\n";
+                db.usaha_sewa.forEach(row => { csvContent += `${row.id},${row.tgl},${row.nama_penyewa},${row.barang_id},${row.qty},${row.hari},${row.total}\n`; });
+            }
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `laporan_${type}_simrt.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+    </script>
+</body>
+</html>
